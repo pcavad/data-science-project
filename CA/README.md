@@ -10,7 +10,7 @@ Descriptive statistics and machine learning for anonymous customer.
 - data: the folder with data pipelines (empty for confidentiality).
 - reports: the folder to dump reports in csv, xlsx formats, and images (dashboard).
 
-The Jupyter notebooks are mostly wrappers using helper functions.
+The Jupyter notebooks are mostly wrappers which use helper functions.
 
 - support: list of helper functions
   -  etl.py: Extract, Transform, Load.

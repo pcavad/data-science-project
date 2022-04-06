@@ -1,3 +1,3 @@
 # data-science-portfolio
 
-CA: Jupyter notebooks for an anonymous customer: ETL, EDA, forecasting.
+CA: Jupyter notebooks for a customer: ETL, EDA, forecasting.

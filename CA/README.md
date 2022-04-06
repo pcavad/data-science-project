@@ -18,3 +18,5 @@ The Jupyter notebooks are mostly wrappers which use helper functions.
   -  orders.py: the Orders class (inherits from pd.DataFrame)
   -  service.py: functions to run service etl.
   -  utils: orders reports and dashboard.
+
+Data are not visible for confidentiality reasons.

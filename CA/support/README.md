@@ -1,4 +1,4 @@
-# Helper functions
+# Helper libraries
 
 # Content:
 

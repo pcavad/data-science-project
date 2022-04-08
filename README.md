@@ -9,7 +9,6 @@ Tools:
 - Spyder IDE (.py)
 
 Libraries:
-- pyhton
 - pandas
 - numpy
 - matplotlib

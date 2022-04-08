@@ -1,6 +1,6 @@
 # data-science-portfolio
 
-CA: Jupyter notebooks for a customer: ETL, EDA, timeseries forecasting using different machine learning techniques.
+CA: Jupyter Notebooks for a customer: ETL, EDA, timeseries forecasting using different machine learning techniques.
 
 Programming: python.
 

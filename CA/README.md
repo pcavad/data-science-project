@@ -4,19 +4,17 @@ Descriptive statistics and machine learning for anonymous customer.
 # Content:
 
 - edl.ipynb: Extract, Transform, Load from the data pipeline.
-- eda.ipynb: order reports and a dashboard.
-- etl_service.ipynb: Extract, Transform, Load from service data.
+- eda.ipynb: generate the order reports and a dashboard.
+- etl_service.ipynb: Extract, Transform, Load and generate a report of the service cases.
 - forecasting.ipynb: timeseries forecasting using FB Prophet, plus an experimentas part.
-- data: the folder with data pipelines (empty for confidentiality).
-- reports: the folder to dump reports in csv, xlsx formats, and images (dashboard).
+- data: the folder with data pipelines (data are not visible for confidentiality).
+- reports: the folder to dump reports in csv, xlsx formats, and the dashboard images.
 
-The Jupyter notebooks are mostly wrappers which use helper functions.
+The Jupyter notebooks are mostly wrappers which use helper libraries below.
 
-- support: list of helper functions
+- support:
   -  etl.py: Extract, Transform, Load.
   -  ml.py: ML and DL functions.
   -  orders.py: the Orders class (inherits from pd.DataFrame)
   -  service.py: functions to run service etl.
   -  utils: orders reports and dashboard.
-
-Data are not visible for confidentiality reasons.

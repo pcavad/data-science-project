@@ -2,8 +2,9 @@
 
 - Order headers pivot
 - Order lines pivot
-- returns
-- timeseries
-- Figures
+- Orders in json format
+- Service (warranty returns) report
+- Timeseries
+- Dashboard images
 
 csv, xlsx, and images.

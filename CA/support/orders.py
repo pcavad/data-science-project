@@ -7,6 +7,8 @@ Created on Mon Mar 21 17:22:06 2022
 """
 
 import datetime
+import json
+import os
 import pandas as pd
 
 class Orders(pd.DataFrame):
@@ -76,6 +78,33 @@ class Orders(pd.DataFrame):
         The order lines for a specific order_id.
         '''
         return self.loc[self['order_id'] == order_id, self.columns_mask]
+    
+    def get_order_json(self, order_id: str, reports: str = 'reports'):
+        '''
+        Dumps the order header and line in json format.
+        '''
+        dfh = self.loc[(self['order_id'] == order_id) 
+                        & (self['is_order_header'] == True), self.header_mask]
+        oh = {}
+        for col in dfh.columns:
+            oh[col] = str(dfh[col].item())
+
+        dfl = self.loc[self['order_id'] == order_id, self.columns_mask]
+        ol = {}
+        for col in dfl.columns:
+            l = []
+            for i in dfl[col]:
+                l.append(str(i))
+            ol[col] = l
+            
+        order_dict = {}
+        order_dict['header'] = oh
+        order_dict['lineitems'] = ol
+        
+        with open(os.path.join(reports, order_id + '.json'), 'w') as f:
+            json.dump(order_dict,f)
+            
+        return order_dict
     
     def get_orders(self
                   , date_start: datetime.datetime

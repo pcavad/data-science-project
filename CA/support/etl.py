@@ -9,13 +9,18 @@ import re
 from forex_python.converter import CurrencyRates
 import numpy as np
 import pandas as pd
+import sqlite3
+
+# support
 from support import datasetup
 from support.utils import validate_input
-
+from support.orders import Orders
 
 def e_t_l (context, event):
     '''
     Runs ETL to load and transform order information according to logic.
+    It will update the orders_pipeline.db SQLite database orders table with new order_ids.
+    It will re-generate or not the corresponding csv file depending by re_generate_orders_csv.
 
     Inputs:
         context: dict
@@ -29,6 +34,7 @@ def e_t_l (context, event):
             channels: list[str] = None >>> the sale channels
         event: dict
             re_generate_rates: bool >>> generate a new currency rates file
+            re_generate_orders_csv: bool >>> generate a new orders_file or just append to the SQL table
     Return:
         df: pd.DataFrame >>> the orders dataframe with headers and lines
     '''
@@ -43,6 +49,7 @@ def e_t_l (context, event):
         stores = validate_input(context, 'stores', 'key')[1]
         channels = validate_input(context, 'channels', 'key')[1]
         re_generate_rates = validate_input(event, 're_generate_rates', 'key')[1]
+        re_generate_orders_csv = validate_input(event, 're_generate_orders_csv', 'key')[1]
     except Exception as e:
         print(e)
         return None
@@ -59,6 +66,8 @@ def e_t_l (context, event):
         stores = datasetup.stores
     if re_generate_rates is None:
         re_generate_rates = False
+    if re_generate_orders_csv is None:
+        re_generate_orders_csv = False
 
     # Type verification for inputs which passed through key validation
     try:
@@ -146,10 +155,11 @@ def e_t_l (context, event):
     # Make order header flag
     df['is_order_header'] = pd.Series([True if pd.notna(c) else False for c in df.currency]) # Currency is NaN in line
 
-    # Make order lines model, amount, unit price
+    # Make order lines model, amount, unit price, json columns
     df['lineitem_model'] = df['lineitem_name'].str.split('-',n=1).str[0]
     df['lineitem_amount'] = df['lineitem_quantity'] * df['lineitem_price'] - df['lineitem_discount']
     df['lineitem_unit_price'] = df['lineitem_amount'] / df['lineitem_quantity']
+    df['lineitems_json'] = np.nan
 
     # Make region, not for the order lines
     df['region'] = df.billing_country.apply(make_region)
@@ -248,15 +258,80 @@ def e_t_l (context, event):
         'channel',
         'region',
         'source',
-        'tags'
+        'tags',
+        'lineitems_json'
         ], axis=1)
-
+    
+    # Save the orders table to the orders_pipeline.db SQLite
+    import_new_orders(df, data)
+        
     # Save to csv and return dataframe
-    df.to_csv(os.path.join(data, orders_file),index=False)
+    if re_generate_orders_csv:
+        df.to_csv(os.path.join(data, orders_file),index=False)
 
     return df
 
 # Helper functions
+
+def import_new_orders(df, data):
+    '''
+    Imports into the orders_pipeline.db (SQLite) orders from the input dataframe 
+    (=from the csv files which are in the working area).
+    Inputs:
+        df: pd.DataFrame >>> the orders dataframe with headers and lines
+        data: str >>> folder with all the data pipelines
+    '''
+    try:
+        # opens the database
+        conn = sqlite3.connect(os.path.join(data, 'orders_pipeline.db'))
+        with conn:
+            c = conn.cursor()
+            # create the table if it doesn't exist
+            sql_stm = 'CREATE TABLE IF NOT EXISTS orders {}'.format(str(tuple(df)))
+            c.execute(sql_stm)
+            # deleting from the database orders which remained in the working area (csv files)
+            order_ids = df['order_id'].unique()
+            sql_stm = 'DELETE FROM orders WHERE order_id IN {}'.format(tuple(order_ids))
+            c.execute(sql_stm)
+            conn.commit()
+            # selecting orders which are already in the staging area and don't need to be imported again
+            sql_stm = 'SELECT DISTINCT order_id FROM orders'
+            order_ids = [oid[0] for oid in c.execute(sql_stm)]
+            df_update = df[~df.order_id.isin(order_ids)]
+            # add the lieitems column
+            count_added_rows = df_update.shape[0]
+            # inserting orders from the working area
+            for row in df_update.values:
+                sql_stm = 'INSERT INTO orders VALUES ' + str(tuple(row)).replace("nan", "Null")
+                c.execute(sql_stm)
+                conn.commit()
+            # updating lineitems
+            my_orders = Orders(df_update)
+            for order_id in df_update['order_id'].unique():
+                try:
+                    dfl = my_orders.get_order_lines(order_id)
+                    # building a dictionary for each order header in which the lineitem attributes (e.g. sku) are lists
+                    ol = {'lineitems':{}}
+                    for col in dfl.columns:
+                        l = []
+                        for i in dfl[col]:
+                            l.append(str(i))
+                        ol['lineitems'][col] = l
+                    sql_stm = "UPDATE orders SET lineitems_json = \"{}\" WHERE order_id = '{}' AND is_order_header = 1".format(ol, order_id)
+                    c.execute(sql_stm)
+                    conn.commit()
+                except sqlite3.Error as e:
+                    print(order_id, ': ', e)
+                    continue
+            # checking the number of orders in the database
+            sql_stm = 'SELECT COUNT(*) FROM orders'
+            c.execute(sql_stm)
+            count_total_rows = c.fetchone()
+    except sqlite3.Error as e:
+        print(e)
+    else:
+        print(f'{count_added_rows} new records imported in orders db file.')
+        print(f'{count_total_rows} total records.')
 
 def make_region(bc):
     '''

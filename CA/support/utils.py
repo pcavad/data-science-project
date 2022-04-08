@@ -16,6 +16,7 @@ mpl.style.use('seaborn')
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import sqlite3
 import tabulate
 sns.set_theme(style="darkgrid")
 
@@ -102,17 +103,36 @@ def load_data(folders = None, files = None):
         return None, None, None
 
     try:
-        df = pd.read_csv(os.path.join(main_folder, orders_file))
+        # df = pd.read_csv(os.path.join(main_folder, orders_file))
         df_models = pd.read_excel(os.path.join(main_folder, models_file))
         df_service = pd.read_csv(os.path.join(main_folder, service_folder, service_file),
                                  usecols=['distributor','sku', 'processed'])
+        
+        # using SQLlite instead of csv
+        conn = sqlite3.connect(os.path.join(main_folder, 'orders_pipeline.db'))
+        with conn:
+            c = conn.cursor()
+            sql_stm = 'SELECT * FROM orders'
+            c.execute(sql_stm)
+            orders_table = c.fetchall()
+            sql_stm = 'PRAGMA table_info(orders)'
+            c.execute(sql_stm)
+            cols = [col[1] for col in c.fetchall()]
+            df = pd.DataFrame(orders_table, columns = cols)
     except FileNotFoundError as e:
+        print(e)
+        return None, None, None
+    except Exception(e):
         print(e)
         return None, None, None
     else:
         df['order_date']=pd.to_datetime(df['order_date'], format='%Y-%m-%d')
         df['lineitem_date']=pd.to_datetime(df['lineitem_date'], format='%Y-%m-%d')
-
+        # for compatibility with SQLite
+        df['distributor'] = df['distributor'].astype('bool') 
+        df['is_order_header'] = df['distributor'].astype('bool')
+        df.fillna(np.nan, inplace = True)
+        
     return df, df_models, df_service
 
 def validate_input(d, k, input_type, df_cols = None):

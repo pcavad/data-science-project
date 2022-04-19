@@ -1,6 +1,6 @@
 # data-science-portfolio
 
-Descriptive and predictive orders reports for customer CA: ETL, EDA, timeseries forecasting using different machine learning techniques.
+Descriptive and predictive orders reports for a customer: ETL, EDA, timeseries forecasting using different machine learning techniques.
 
 Programming: python.
 

@@ -34,9 +34,9 @@ def e_t_l (context, event):
             channels: list[str] = None >>> the sale channels
         event: dict
             re_generate_rates: bool >>> generate a new currency rates file
-            re_generate_orders_csv: bool >>> generate a new orders_file or just append to the SQL table
+            re_generate_orders_csv: bool >>> generate a new orders_file with the orders newly imported
     Return:
-        df: pd.DataFrame >>> the orders dataframe with headers and lines
+        df: pd.DataFrame >>> the orders dataframe with headers and lines from the orders newly imported
     '''
     # Assign variables and run key validations
     try:
@@ -84,33 +84,44 @@ def e_t_l (context, event):
 
     try:
         files_csv = [f for f in os.listdir(os.path.join(data, orders_filepath)) if re.search('.csv', f)]
+        assert files_csv, 'No files csv to import'
         for f in files_csv:
             print(f)
             df1 = pd.read_csv(os.path.join(data, orders_filepath, f))
             df1['store'] = re.search(stores, f).group() # on all order lines 
             df = pd.concat([df, df1], axis=0)
+            del df1 # delete temporary dataframe
     except FileNotFoundError:
         print('File not found')
+        return None
+    except AssertionError as a:
+        print(a)
         return None
     except Exception as e:
         print(e)
         return None
     else:
-        del df1 # delete temporary dataframe
         df.reset_index(drop=True,inplace=True) # reset df index
         df.columns = [c.lower() for c in df.columns] # make df column names lower case
         df.columns = [re.sub(' ', '_', c) for c in df.columns] # replace space with _
 
     # Enforce unique order identifier
     df['order_id'] = df['name'] + '-' + df['store'] # on all order lines
+    ids_from_csv = df['order_id'].unique() # will be used later when updating the .db file
 
-    # Drop cancelled and refunded orders (headers and lines)
-    df.drop(df.loc[
-        (
-            df['order_id'].isin(df.loc[df['cancelled_at'].notna(),'order_id']) | 
-            df['order_id'].isin(df.loc[df['financial_status'] == 'refunded','order_id'])
-        )].index, axis=0, inplace=True)
-    df.reset_index(drop=True,inplace=True) # reset df index
+    # Drop cancelled and refunded orders (headers and lines) 
+    # and assert if the resulting dataframe is empty
+    try:
+        df.drop(df.loc[
+            (
+                df['order_id'].isin(df.loc[df['cancelled_at'].notna(),'order_id']) | 
+                df['order_id'].isin(df.loc[df['financial_status'] == 'refunded','order_id'])
+            )].index, axis=0, inplace=True)
+        df.reset_index(drop=True,inplace=True) # reset df index
+        assert not df.empty, 'No orders data to import (the dataframe is empty)'
+    except AssertionError as a:
+        print(a)
+        return None
 
     # Remove un-used columns
     df.drop([
@@ -263,7 +274,7 @@ def e_t_l (context, event):
         ], axis=1)
     
     # Save the orders table to the orders_pipeline.db SQLite
-    import_new_orders(df, data)
+    import_new_orders(df, ids_from_csv, data)
         
     # Save to csv and return dataframe
     if re_generate_orders_csv:
@@ -273,14 +284,16 @@ def e_t_l (context, event):
 
 # Helper functions
 
-def import_new_orders(df, data):
+def import_new_orders(df, ids_from_csv, data):
     '''
     Imports into the orders_pipeline.db (SQLite) orders from the input dataframe 
     (=from the csv files which are in the working area).
     Inputs:
         df: pd.DataFrame >>> the orders dataframe with headers and lines
+        ids_from_csv: np.array >>> clean the database with all the orders found in the csv files
         data: str >>> folder with all the data pipelines
     '''
+
     try:
         # opens the database
         conn = sqlite3.connect(os.path.join(data, 'orders_pipeline.db'))
@@ -289,12 +302,12 @@ def import_new_orders(df, data):
             # create the table if it doesn't exist
             sql_stm = 'CREATE TABLE IF NOT EXISTS orders {}'.format(str(tuple(df)))
             c.execute(sql_stm)
-            # deleting from the database orders which remained in the working area (csv files)
-            order_ids = df['order_id'].unique()
-            sql_stm = 'DELETE FROM orders WHERE order_id IN {}'.format(tuple(order_ids))
+            # deleting orders which are in the csv files (include those potentially cancelled)
+            sql_stm = 'DELETE FROM orders WHERE order_id IN {}'.format(tuple(ids_from_csv))
             c.execute(sql_stm)
             conn.commit()
             # selecting orders which are already in the staging area and don't need to be imported again
+            # assuming that these orders have been finalized, i.e. they won't be cancelled or modified
             sql_stm = 'SELECT DISTINCT order_id FROM orders'
             order_ids = [oid[0] for oid in c.execute(sql_stm)]
             df_update = df[~df.order_id.isin(order_ids)]

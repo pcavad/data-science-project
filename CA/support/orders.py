@@ -19,7 +19,7 @@ class Orders(pd.DataFrame):
             , data=None, index=None, columns=None, dtype=None, copy=None
             , my_header_mask: list[str] = None
             , my_columns_mask: list[str] = None):
-
+        
         super().__init__(data, index, columns, dtype, copy)
         
         # sets columns to defaults if None

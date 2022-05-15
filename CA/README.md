@@ -1,5 +1,5 @@
 # CA
-Descriptive statistics and machine learning for anonymous customer.
+Descriptive statistics and machine learning for Anonymous Customer.
 
 # Content:
 

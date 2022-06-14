@@ -208,7 +208,7 @@ def e_t_l (context, event):
     liq = df.groupby('order_id')['lineitem_quantity'].sum()
     df['total_quantity'] = df.apply(lambda x: make_total_qty(x['order_id'], x['is_order_header'], liq), axis = 1)
     del liq
-
+    
     # Make sale channels, not for the order lines
     df['channel'] = df.apply(lambda x: make_channels(channels, x['tags'], x['distributor']), axis = 1)
 
@@ -318,7 +318,16 @@ def import_new_orders(df, ids_from_csv, data):
                 sql_stm = 'INSERT INTO orders VALUES ' + str(tuple(row)).replace("nan", "Null")
                 c.execute(sql_stm)
                 conn.commit()
-            # updating lineitems
+            # updating Unit Price as Null if RMA
+            sql_stm = """
+            WITH tbl_order_ids AS (SELECT DISTINCT order_id FROM orders WHERE tags LIKE '%RMA%')
+            UPDATE orders
+            SET lineitem_unit_price = NULL
+            WHERE order_id IN tbl_order_ids
+            """
+            c.execute(sql_stm)
+            conn.commit()
+            # updating lineitems dictionary
             my_orders = Orders(df_update)
             for order_id in df_update['order_id'].unique():
                 try:

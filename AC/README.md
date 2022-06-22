@@ -1,5 +1,5 @@
 # CA
-Descriptive statistics and machine learning for Anonymous Customer. Data have been randomized for confidentiality.
+Descriptive statistics and machine learning for Anonymous Customer. I scrambled the data for confidentiality.
 
 # Content:
 

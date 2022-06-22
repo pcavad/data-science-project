@@ -172,7 +172,7 @@ def make_prediction(context, event):
     print('Timeseries\n')
     print(normaltest(ts.values))
     print(f'mean: {np.mean(ts.values)}, std: {np.std(ts.values)}')
-    display(adf_test(ts.values))
+    print(adf_test(ts.values))
 
     # Plot Autocorrelation and partial autocorrelation for the entire timeseries
     fig2 = plt.figure()
@@ -266,30 +266,16 @@ def make_prediction(context, event):
     if dump_path:
         fig.savefig(os.path.join(dump_path, 'forecast.jpg'))
 
-    # Projections to end of the current year
-    year_end = str(datetime.datetime.today().year) # set current year
+    date_start_forecast = with_out_of_sample_dates_df.min().item()
+    date_end_forecast = with_out_of_sample_dates_df.max().item()
+    str_date_current_year = str(datetime.datetime.today().year)
 
-    # Projections (normal, lowest, best)
-    if tseries.index[-1].month == 12: # If December then no forecast
-        print('No forecast to the end of the current year, we are in December!')
-    else:
-        forecast_to_year_end =\
-            forecast_prohpet_oos\
-                .set_index('ds')\
-                .loc[year_end, ['yhat', 'yhat_lower', 'yhat_upper']].sum()
-
-        # Actual to date + projection "normal"
-        # Note, using tseries instead of ts to save the original outliers
-        actual_plus_forecast = tseries[year_end].sum() + forecast_to_year_end['yhat']
-
-        print(f'Forecast to the end of {year_end}')
-        print('#########################################################')
-        print('Forecast to the end of the year         |', f'${forecast_to_year_end[0]:,.0f}')
-        print('Lowest forecast to the end of the year  |', f'${forecast_to_year_end[1]:,.0f}')
-        print('Best forecast to the end of the year    |', f'${forecast_to_year_end[2]:,.0f}')
-        print('#########################################################')
-        print('Total to the end of the year            |', f'${actual_plus_forecast:,.0f}')
-        print('#########################################################')
+    print(f"Forecast between {str(date_start_forecast.date())} and {str(date_end_forecast.date())}")
+    print('#########################################################')
+    print('Normal: ', f'${forecast_prohpet_oos.yhat.sum():,.0f}')
+    print('Lowest: ', f'${forecast_prohpet_oos.yhat_lower.sum():,.0f}')
+    print('Best: ', f'${forecast_prohpet_oos.yhat_upper.sum():,.0f}')
+    print('#########################################################')
 
     return mean_squared_error(prophet_df['y'], forecast_prohpet['yhat'])
 

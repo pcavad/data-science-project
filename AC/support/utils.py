@@ -24,7 +24,7 @@ import tabulate
 sns.set_theme(style="darkgrid")
 
 # Support helper functions
-from support import orders
+from support import orders, datasetup
 
 def my_perf_counter(orig_func):
     '''
@@ -1136,9 +1136,21 @@ def randomizer(df, *args):
         new_arr = [(s, ''.join(random.sample(s,len(s)))) for s in [str(b) for b in arr_of_unique_values] if s != 'nan']
         return pd.DataFrame(new_arr, columns=['original', 'transformed'])
 
-    # scramble all object type columns
+    # scramble object type columns
     for col in args:
-        if df[col] .dtypes == 'object':
+        if col == 'channel':
+            channels = df[col].unique()
+            for i, ch in enumerate(channels):
+                df[col].replace(ch, 'channel' + str(i), inplace=True)
+        elif col == 'lineitem_model':
+            models = df[col].unique()
+            for i, mod in enumerate(models):
+                df[col].replace(mod, 'model' + str(i), inplace=True)
+        elif col == 'lineitem_sku':
+            skus = df[col].unique()
+            for i, sku in enumerate(skus):
+                df[col].replace(sku, 'sku' + str(i), inplace=True)
+        elif df[col] .dtypes == 'object':
             df_for_update = update_series(df.loc[df.distributor == True, col].unique())
             df[col] = df.join(df_for_update.set_index('original'), on=col, how='left').loc[:, 'transformed']
 

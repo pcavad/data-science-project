@@ -23,6 +23,7 @@ def make_service(
     , to_replace_descriptions: list[str] = None
     , value_classified: list[str] = None
     , log_path: str = 'reports'
+    , jupyter: bool = False
     ):
     '''
     Reads the RMA files and returns the service dataframe.
@@ -31,10 +32,10 @@ def make_service(
         data: str >>> folder with orders data
         returns_filepath: str >>> path to the authorized returns files
         models_file: str >>> Excel file with metadata
-        to_replace: list[str] texts to trap for auto classification
-        value: list[str] classified defects
-        log_path: Optional[str]
-                >>> folder to save logging with output (for IDE which don't show widgets)
+        to_replace: list[str] >>> texts to trap for auto classification
+        value: list[str] >>> classified defects
+        log_path: Optional[str] >>> folder to save logging with output (for IDE which don't show widgets)
+        jupyter: Optional[bool] >>> Jupyter notebook
     Return:
         df: pd.DataFrame >>> history of the service cases
     '''
@@ -119,12 +120,19 @@ def make_service(
         ]
         )
 
-    # Run checks
-    print('### new ###\n')
-    display(df[df.processed == False].sort_values('return_period')) # Check only the new records
+    def classification_length(dc: str):
+        '''
+        Checks if the auto classification failed.
 
-    print('### sku mismatch ###\n')
-    display(df.loc[(df.model.isna()) & (df.processed is False)])
+        Inputs:
+            dc: str >>> description of the defect
+        Return:
+            bool >>> True = bad calssification
+        '''
+        if pd.notna(dc):
+            if len(str(dc)) > 10:
+                return True
+            return False
 
     def bad_serial(sn):
         '''
@@ -136,40 +144,35 @@ def make_service(
         '''
         if pd.notna(sn):
             sn = str(sn)
-            if bool(re.match('[0-9]{4}X*\s\w[0-9]{5}', sn))\
-                | bool(re.match('[0-9]{2}S[0O][0-9]{5}', sn)):
-                return False # Serial is ok
-            return True # Serial is bad
-        return True # Serial is Null
+            if bool(re.match('[0-9]{4}X*\s\w[0-9]{5}', sn)) \
+                    | bool(re.match('[0-9]{2}S[0O][0-9]{5}', sn)):
+                return False  # Serial is ok
+            return True  # Serial is bad
+        return True  # Serial is Null
 
-    print('### bad serial number ###\n')  # Check only the new records
-    display(df.loc[(df.serial_number.apply(bad_serial)) & (df.processed is False)])
+    # Jupyter notebook
+    if jupyter:
+        # Run checks
+        print('### new ###\n')
+        display(df[df.processed == False].sort_values('return_period', ascending=False)) # Check only the new records
 
-    print('### duplicated serial number ###\n')
-    display(df.loc[df.serial_number.duplicated(keep=False)]\
-            .sort_values('serial_number')) # Check all records
+        print('### sku mismatch ###\n')
+        display(df.loc[(df.model.isna()) & (df.processed is False)])
 
-    print('### not classified ###\n')
-    display(df.loc[(df.defect_classified.isna())
+        print('### bad serial number ###\n')  # Check only the new records
+        display(df.loc[(df.serial_number.apply(bad_serial)) & (df.processed is False)])
+
+        print('### duplicated serial number ###\n')
+        display(df.loc[df.serial_number.duplicated(keep=False)]\
+                .sort_values('serial_number')) # Check all records
+
+        print('### not classified ###\n')
+        display(df.loc[(df.defect_classified.isna())
+                       & (df.processed == False)]) # Check only the new records
+
+        print('### bad classification ###\n')
+        display(df[(df.defect_classified.apply(classification_length))
                    & (df.processed == False)]) # Check only the new records
-
-    def classification_length(dc: str):
-        '''
-        Checks if the auto classification failed.
-    
-        Inputs:
-            dc: str >>> description of the defect
-        Return:
-            bool >>> True = bad calssification
-        '''
-        if pd.notna(dc):
-            if len(str(dc)) > 10:
-                return True
-            return False
-
-    print('### bad classification ###\n')
-    display(df[(df.defect_classified.apply(classification_length))
-               & (df.processed == False)]) # Check only the new records
 
     # save to csv
     df.to_csv(os.path.join(data, returns_filepath, 'service.csv'))

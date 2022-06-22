@@ -6,7 +6,7 @@ Programming: python.
 
 Tools:
 - Jupyter Notekook (.ipynb)
-- Spyder IDE (.py)
+- Spyder IDE and PyCharm (.py)
 
 Libraries:
 - pandas

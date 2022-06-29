@@ -1119,7 +1119,7 @@ def add_value_labels(ax, spacing=5,symbol='',min_label=0):
                                         # positive and negative values.
             
 
-def randomizer(df, *args):
+def _randomizer(df, *args):
     '''
     It makes sensitive data random to demo a live case.
     Inputs:
